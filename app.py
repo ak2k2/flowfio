@@ -10,6 +10,7 @@ import yaml
 from datetime import datetime
 import numpy as np
 import threading, time, signal, psutil
+from dash_iconify import DashIconify
 
 # Global store for running FIO processes {run_id: Popen}
 running_processes = {}
@@ -35,13 +36,24 @@ app.layout = html.Div([
         html.Div([
             # Sidebar
             html.Div([
+                # Run Button at Top
                 html.Div([
-                    html.H3("Test Configuration"),
+                    html.Button([
+                        DashIconify(icon="mdi:play", style={"marginRight": "8px"}),
+                        'Run Benchmark'
+                    ], id='run-button', n_clicks=0, className='run-button'),
+                ], className='control-section'),
+                
+                html.Div([
+                    html.H3([
+                        DashIconify(icon="mdi:cog", style={"marginRight": "8px"}),
+                        "Configuration"
+                    ]),
                     
                     html.Label("Test Scenario"),
-                    dcc.Dropdown(
+        dcc.Dropdown(
                         id='scenario',
-                        options=[
+            options=[
                             {'label': 'Instant (5s)', 'value': 'instant'},
                             {'label': 'Quick (30s)', 'value': 'quick'},
                             {'label': 'Standard (60s)', 'value': 'standard'},
@@ -51,9 +63,9 @@ app.layout = html.Div([
                     ),
                     
                     html.Label("Workload Preset"),
-                    dcc.Dropdown(
+        dcc.Dropdown(
                         id='workload_preset',
-                        options=[
+            options=[
                             {'label': v['name'], 'value': k} 
                             for k, v in config['workloads'].items()
                         ],
@@ -61,9 +73,9 @@ app.layout = html.Div([
                     ),
                     
                     html.Label("Storage Type"),
-                    dcc.Dropdown(
+        dcc.Dropdown(
                         id='storage_type',
-                        options=[
+            options=[
                             {'label': v['name'], 'value': k}
                             for k, v in config['storage_types'].items()
                         ],
@@ -72,18 +84,21 @@ app.layout = html.Div([
                 ], className='control-section'),
                 
                 html.Div([
-                    html.H4("Advanced Settings"),
+                    html.H4([
+                        DashIconify(icon="mdi:tune", style={"marginRight": "6px"}),
+                        "Advanced"
+                    ]),
                     
                     html.Label("Direct I/O"),
                     dcc.RadioItems(
                         id='direct',
-                        options=[
-                            {'label': 'Yes (recommended)', 'value': '1'},
+            options=[
+                            {'label': 'Yes', 'value': '1'},
                             {'label': 'No', 'value': '0'}
-                        ],
-                        value='1'
-                    ),
-                    
+            ],
+            value='1'
+        ),
+        
                     html.Label("Block Size"),
                     dcc.Dropdown(
                         id='bs',
@@ -92,38 +107,34 @@ app.layout = html.Div([
                     ),
                     
                     html.Label("Queue Depth"),
-                    dcc.Dropdown(
-                        id='iodepth',
+        dcc.Dropdown(
+            id='iodepth',
                         options=[{'label': str(qd), 'value': str(qd)} for qd in config['queue_depths']],
                         value='32'
                     ),
                     
-                    html.Label("Number of Jobs"),
+                    html.Label("Jobs"),
                     dcc.Dropdown(
                         id='numjobs',
                         options=[{'label': str(nj), 'value': str(nj)} for nj in config['job_counts']],
                         value='4'
                     ),
                     
-                    html.Label("Test File Size"),
+                    html.Label("File Size"),
                     dcc.Input(
                         id='size',
                         type='text',
                         value='1G',
-                        placeholder='e.g., 1G, 500M, 2048M'
+                        placeholder='e.g., 1G, 500M'
                     ),
-                ], className='control-section'),
-                
-                html.Div([
-                    html.Button('Run Benchmark', id='run-button', n_clicks=0, className='run-button'),
                 ], className='control-section'),
                        
             ], className='sidebar'),
             
             # Main Content
             html.Div([
-                html.Div(id='status'),
-                html.Div(id='charts')
+    html.Div(id='status'),
+    html.Div(id='charts')
             ], className='main-content')
             
         ], className='layout')
@@ -281,7 +292,10 @@ def stream_logs(n, active_run):
     if process.poll() is None:
         # Still running
         status_div = html.Div([
-            html.Div("Running FIO benchmark...", className="status-success"),
+            html.Div([
+                DashIconify(icon="mdi:loading", className="spin", style={"marginRight": "8px"}),
+                "Running benchmark..."
+            ], style={"display": "flex", "alignItems": "center", "marginBottom": "16px", "color": "#10b981"}),
             log_pre
         ])
         return status_div, no_update, no_update, no_update
@@ -292,8 +306,8 @@ def stream_logs(n, active_run):
         workload_config = proc_info['workload_config']
 
         try:
-            with open(output_file, 'r') as f:
-                fio_data = json.load(f)
+        with open(output_file, 'r') as f:
+            fio_data = json.load(f)
             charts = create_comprehensive_charts(fio_data, workload_config)
             summary = create_status_summary(fio_data, workload_config, scenario_config)
             # cleanup
@@ -315,32 +329,32 @@ def create_status_summary(fio_data, workload_config, scenario_config):
     write_bw = sum(j['write']['bw'] for j in fio_data['jobs']) / 1024
     
     return html.Div([
-        # Key Metrics Row
+        # Key Metrics Row - More minimal
         html.Div([
             html.Div([
                 html.H4(f"{read_iops + write_iops:.0f}"),
-                html.P("Total IOPS")
-            ], className='metric-card iops'),
+                html.P("IOPS")
+            ], className='metric-card-minimal'),
             
             html.Div([
                 html.H4(f"{read_bw + write_bw:.1f}"),
-                html.P("Total Bandwidth (MB/s)")
-            ], className='metric-card bandwidth'),
+                html.P("MB/s")
+            ], className='metric-card-minimal'),
             
             html.Div([
                 html.H4(f"{job.get('read', {}).get('lat_ns', {}).get('mean', 0) / 1000:.1f}"),
-                html.P("Avg Read Latency (μs)")
-            ], className='metric-card latency'),
+                html.P("Latency (μs)")
+            ], className='metric-card-minimal'),
             
             html.Div([
-                html.H4(f"{scenario_config['runtime']}"),
-                html.P("Test Duration (s)")
-            ], className='metric-card duration'),
+                html.H4(f"{scenario_config['runtime']}s"),
+                html.P("Duration")
+            ], className='metric-card-minimal'),
         ], className='metrics-grid'),
         
         # Detailed Performance Table
         html.Div([
-            html.H4("📊 Performance Breakdown"),
+            html.H4("Performance Breakdown"),
             create_performance_table(fio_data)
         ], className='detailed-table', style={'marginTop': '24px'})
     ])
@@ -518,8 +532,8 @@ def create_latency_chart(job):
         fig.add_trace(go.Scatter(
             x=percentiles, y=read_lats, name='Read',
             mode='lines+markers', 
-            line=dict(color='#10b981', width=2),
-            marker=dict(size=4, color='#10b981')
+            line=dict(color='#fafafa', width=2),
+            marker=dict(size=4, color='#fafafa')
         ))
     
     if write_percentiles:
@@ -528,8 +542,8 @@ def create_latency_chart(job):
         fig.add_trace(go.Scatter(
             x=percentiles, y=write_lats, name='Write',
             mode='lines+markers', 
-            line=dict(color='#3b82f6', width=2),
-            marker=dict(size=4, color='#3b82f6')
+            line=dict(color='#71717a', width=2),
+            marker=dict(size=4, color='#71717a')
         ))
     
     fig.update_layout(
@@ -541,7 +555,15 @@ def create_latency_chart(job):
         paper_bgcolor='rgba(0,0,0,0)',
         font=dict(family='Segoe UI', color='#fafafa', size=11),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        margin=dict(t=60, b=40, l=50, r=40)
+        margin=dict(t=60, b=40, l=50, r=40),
+        xaxis=dict(
+            gridcolor='rgba(113, 113, 122, 0.1)',
+            gridwidth=1
+        ),
+        yaxis=dict(
+            gridcolor='rgba(113, 113, 122, 0.1)',
+            gridwidth=1
+        )
     )
     return fig
 
