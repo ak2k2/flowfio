@@ -1,0 +1,10 @@
+version: '3.8'
+services:
+  fio-dashboard:
+    build: .
+    ports:
+      - "8050:8050"
+    volumes:
+      - ./test-data:/app/test-data
+    environment:
+      - PYTHONUNBUFFERED=1
