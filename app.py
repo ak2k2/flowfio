@@ -110,13 +110,20 @@ def run_fio_test(n_clicks, direct, rw, bs, numjobs, iodepth):
         f'--iodepth={iodepth}',
         '--size=100M',
         '--runtime=10',
+        '--status-interval=1',  # Emit progress logs every second
         '--output-format=json',
         f'--output={output_file}',
         f'--name=test_{timestamp}'
     ]
-    
+    # Log the FIO command
+    print(f"Running FIO command: {' '.join(fio_cmd)}", flush=True)
+
     try:
         result = subprocess.run(fio_cmd, capture_output=True, text=True, timeout=60)
+        # Log FIO results
+        print(f"FIO return code: {result.returncode}", flush=True)
+        print(f"FIO stdout: {result.stdout}", flush=True)
+        print(f"FIO stderr: {result.stderr}", flush=True)
         
         if result.returncode != 0:
             return f"Error running FIO: {result.stderr}", ""
