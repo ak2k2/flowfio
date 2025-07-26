@@ -1,35 +1,25 @@
-# FIO Benchmark Defaults Configuration
-# Based on system administrator best practices
-
-# Test Scenarios
 scenarios:
-  # Super Quick Tests (for rapid iteration)
   instant:
     runtime: 5
     size: "100M"
     ramp_time: 1
     
-  # Quick Tests (for development/testing)
   quick:
     runtime: 30
     size: "1G"
     ramp_time: 2
     
-  # Standard Tests (for performance validation)  
   standard:
     runtime: 60
     size: "4G"
     ramp_time: 5
     
-  # Enterprise Tests (for production validation)
-  enterprise:
+  long:
     runtime: 300
     size: "10G" 
     ramp_time: 10
 
-# Workload Patterns
 workloads:
-  # Database-like workloads
   oltp:
     name: "OLTP Database"
     rw: "randrw"
@@ -38,7 +28,6 @@ workloads:
     iodepth: 32
     numjobs: 4
     
-  # Log writing
   log_write:
     name: "Log Writing"
     rw: "write"
@@ -46,7 +35,6 @@ workloads:
     iodepth: 1
     numjobs: 1
     
-  # File server
   fileserver:
     name: "File Server"
     rw: "randrw"
@@ -55,7 +43,6 @@ workloads:
     iodepth: 8
     numjobs: 8
     
-  # Backup/Archive
   backup:
     name: "Backup Sequential"
     rw: "write"
@@ -63,7 +50,6 @@ workloads:
     iodepth: 16
     numjobs: 2
     
-  # Web server
   webserver:
     name: "Web Server"
     rw: "randread"
@@ -71,7 +57,6 @@ workloads:
     iodepth: 16
     numjobs: 8
     
-  # Video/Media
   media:
     name: "Media Streaming"
     rw: "read"
@@ -79,39 +64,34 @@ workloads:
     iodepth: 4
     numjobs: 4
 
-# Block Sizes for Testing
 block_sizes:
-  - "4k"    # Small random I/O
-  - "8k"    # Database typical
-  - "16k"   # Some databases
-  - "64k"   # Log files
-  - "1M"    # Large sequential
+  - "4k"
+  - "8k"
+  - "16k"
+  - "64k"
+  - "1M"
 
-# Queue Depths
 queue_depths:
-  - 1       # Synchronous
-  - 8       # Light load
-  - 16      # Moderate load
-  - 32      # Heavy load
-  - 64      # Very heavy load
+  - 1
+  - 8
+  - 16
+  - 32
+  - 64
 
-# Job Counts (based on CPU cores)
 job_counts:
-  - 1       # Single threaded
-  - 4       # Light parallelism
-  - 8       # Moderate parallelism
-  - 16      # Heavy parallelism
+  - 1
+  - 4
+  - 8
+  - 16
 
-# Common FIO Parameters
 common:
   ioengine: "libaio"
-  direct: 1              # Bypass OS cache
-  time_based: true       # Run for full duration
-  group_reporting: true  # Aggregate job results
+  direct: 1
+  time_based: true
+  group_reporting: true
   output_format: "json"
-  status_interval: 1     # Progress updates every second
+  status_interval: 1
   
-# Storage Types with Optimized Settings
 storage_types:
   nvme_ssd:
     name: "NVMe SSD"

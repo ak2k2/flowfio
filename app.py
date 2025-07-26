@@ -12,10 +12,8 @@ import numpy as np
 import threading, time, signal, psutil
 from dash_iconify import DashIconify
 
-# Global store for running FIO processes {run_id: Popen}
 running_processes = {}
 
-# Load configuration
 with open('fio_defaults.yaml', 'r') as f:
     config = yaml.safe_load(f)
 
@@ -26,17 +24,13 @@ with open('app.html', 'r') as f:
 
 app.layout = html.Div([
     html.Div([
-        # Header
         html.Div([
             html.H1("FlowFIO"),
             html.P("Storage performance benchmarking")
         ], className='header'),
         
-        # Main Layout
         html.Div([
-            # Sidebar
             html.Div([
-                # Run Button at Top
                 html.Div([
                     html.Button([
                         DashIconify(icon="mdi:play", style={"marginRight": "8px"}),
@@ -51,21 +45,21 @@ app.layout = html.Div([
                     ]),
                     
                     html.Label("Test Scenario"),
-        dcc.Dropdown(
+                    dcc.Dropdown(
                         id='scenario',
-            options=[
+                        options=[
                             {'label': 'Instant (5s)', 'value': 'instant'},
                             {'label': 'Quick (30s)', 'value': 'quick'},
                             {'label': 'Standard (60s)', 'value': 'standard'},
-                            {'label': 'Enterprise (300s)', 'value': 'enterprise'}
+                            {'label': 'Long (300s)', 'value': 'long'}
                         ],
                         value='standard'
                     ),
                     
                     html.Label("Workload Preset"),
-        dcc.Dropdown(
+                    dcc.Dropdown(
                         id='workload_preset',
-            options=[
+                        options=[
                             {'label': v['name'], 'value': k} 
                             for k, v in config['workloads'].items()
                         ],
@@ -73,9 +67,9 @@ app.layout = html.Div([
                     ),
                     
                     html.Label("Storage Type"),
-        dcc.Dropdown(
+                    dcc.Dropdown(
                         id='storage_type',
-            options=[
+                        options=[
                             {'label': v['name'], 'value': k}
                             for k, v in config['storage_types'].items()
                         ],
@@ -92,13 +86,13 @@ app.layout = html.Div([
                     html.Label("Direct I/O"),
                     dcc.RadioItems(
                         id='direct',
-            options=[
+                        options=[
                             {'label': 'Yes', 'value': '1'},
                             {'label': 'No', 'value': '0'}
-            ],
-            value='1'
-        ),
-        
+                        ],
+                        value='1'
+                    ),
+                    
                     html.Label("Block Size"),
                     dcc.Dropdown(
                         id='bs',
@@ -107,8 +101,8 @@ app.layout = html.Div([
                     ),
                     
                     html.Label("Queue Depth"),
-        dcc.Dropdown(
-            id='iodepth',
+                    dcc.Dropdown(
+                        id='iodepth',
                         options=[{'label': str(qd), 'value': str(qd)} for qd in config['queue_depths']],
                         value='32'
                     ),
@@ -131,19 +125,17 @@ app.layout = html.Div([
                        
             ], className='sidebar'),
             
-            # Main Content
             html.Div([
-    html.Div(id='status'),
-    html.Div(id='charts')
+                html.Div(id='status'),
+                html.Div(id='charts')
             ], className='main-content')
             
         ], className='layout')
         
     ], className='main-container'),
     
-    # Store for test results
     dcc.Store(id='test-results-store'),
-    dcc.Store(id='active-run-store'),  # holds current run_id and log path
+    dcc.Store(id='active-run-store'),
     dcc.Interval(id='log-interval', interval=1000, n_intervals=0)
 ])
 
@@ -161,7 +153,6 @@ def update_settings_from_preset(workload_preset, storage_type):
         iodepth = str(workload.get('iodepth', 32))
         numjobs = str(workload.get('numjobs', 4))
         
-        # Override with storage type recommendations
         if storage_type and storage_type in config['storage_types']:
             storage = config['storage_types'][storage_type]
             iodepth = str(storage.get('recommended_iodepth', iodepth))
@@ -180,9 +171,6 @@ def update_size_from_scenario(scenario):
         return [config['scenarios'][scenario]['size']]
     return ['1G']
 
-# -------------------- RUN BUTTON CALLBACK --------------------
-# When button clicked, start FIO in a separate thread / process and immediately return run_id & log path
-
 @app.callback(
     Output('active-run-store', 'data'),
     [Input('run-button', 'n_clicks')],
@@ -198,18 +186,14 @@ def run_fio_test(n_clicks, scenario, workload_preset, direct, bs, numjobs, iodep
     if n_clicks == 0:
         return no_update
     
-    # Create test data directory
     os.makedirs('/app/test-data', exist_ok=True)
     
-    # Get scenario settings
     scenario_config = config['scenarios'].get(scenario, config['scenarios']['standard'])
     workload_config = config['workloads'].get(workload_preset, config['workloads']['oltp'])
     
-    # Build FIO command
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_file = f'/app/test-data/results_{timestamp}.json'
     
-    # Determine read/write pattern
     rw = workload_config.get('rw', 'randread')
     rwmixread = workload_config.get('rwmixread', 100)
     
@@ -232,17 +216,13 @@ def run_fio_test(n_clicks, scenario, workload_preset, direct, bs, numjobs, iodep
         f'--name=test_{timestamp}'
     ]
     
-    # Add read/write mix if applicable
     if 'rw' in rw and rwmixread < 100:
         fio_cmd.append(f'--rwmixread={rwmixread}')
     
-    # Log the FIO command
     print(f"Running FIO command: {' '.join(fio_cmd)}", flush=True)
 
-    # Create log file for live tailing
-    log_file = f"/app/test-data/log_{timestamp}.txt"
+    log_file = f'/app/test-data/log_{timestamp}.txt'
 
-    # Start FIO asynchronously
     with open(log_file, "w") as lf:
         process = subprocess.Popen(fio_cmd, stdout=lf, stderr=lf, text=True)
 
@@ -254,13 +234,8 @@ def run_fio_test(n_clicks, scenario, workload_preset, direct, bs, numjobs, iodep
         "workload_config": workload_config
     }
 
-    # Return immediate status, charts empty, store active run info
     active_run = {"run_id": timestamp, "log_file": log_file}
     return active_run
-
-
-# -------------------- LOG STREAMING CALLBACK --------------------
-# This callback fires every second to update the status div with latest log lines.
 
 @app.callback(
     [Output('status', 'children'), Output('charts', 'children'), Output('test-results-store', 'data'), Output('active-run-store', 'clear_data')],
@@ -269,7 +244,6 @@ def run_fio_test(n_clicks, scenario, workload_preset, direct, bs, numjobs, iodep
 )
 def stream_logs(n, active_run):
     if not active_run:
-        # No active run
         return no_update, no_update, no_update, no_update
 
     run_id = active_run.get('run_id')
@@ -281,7 +255,6 @@ def stream_logs(n, active_run):
 
     process = proc_info['process']
 
-    # Read last 15 lines of log file
     try:
         with open(log_file, 'r') as lf:
             lines = lf.readlines()[-15:]
@@ -290,7 +263,6 @@ def stream_logs(n, active_run):
         log_pre = "Collecting logs..."
 
     if process.poll() is None:
-        # Still running
         status_div = html.Div([
             html.Div([
                 DashIconify(icon="mdi:loading", className="spin", style={"marginRight": "8px"}),
@@ -300,19 +272,17 @@ def stream_logs(n, active_run):
         ])
         return status_div, no_update, no_update, no_update
     else:
-        # Completed
         output_file = proc_info['output_file']
         scenario_config = proc_info['scenario_config']
         workload_config = proc_info['workload_config']
 
         try:
-        with open(output_file, 'r') as f:
-            fio_data = json.load(f)
+            with open(output_file, 'r') as f:
+                fio_data = json.load(f)
             charts = create_comprehensive_charts(fio_data, workload_config)
             summary = create_status_summary(fio_data, workload_config, scenario_config)
-            # cleanup
             running_processes.pop(run_id, None)
-            status_done = html.Div([html.Div("FIO Test Completed", className="status-success"), summary])
+            status_done = html.Div([summary])
             return status_done, charts, fio_data, True
         except Exception as e:
             err_div = html.Div(f"Error reading FIO results: {str(e)}", className="status-error")
@@ -320,16 +290,14 @@ def stream_logs(n, active_run):
             return err_div, "", {}, True
 
 def create_status_summary(fio_data, workload_config, scenario_config):
-    """Create a status summary card"""
     job = fio_data['jobs'][0] if fio_data['jobs'] else {}
     
     read_iops = sum(j['read']['iops'] for j in fio_data['jobs'])
     write_iops = sum(j['write']['iops'] for j in fio_data['jobs'])
-    read_bw = sum(j['read']['bw'] for j in fio_data['jobs']) / 1024  # Convert to MB/s
+    read_bw = sum(j['read']['bw'] for j in fio_data['jobs']) / 1024
     write_bw = sum(j['write']['bw'] for j in fio_data['jobs']) / 1024
     
     return html.Div([
-        # Key Metrics Row - More minimal
         html.Div([
             html.Div([
                 html.H4(f"{read_iops + write_iops:.0f}"),
@@ -352,7 +320,6 @@ def create_status_summary(fio_data, workload_config, scenario_config):
             ], className='metric-card-minimal'),
         ], className='metrics-grid'),
         
-        # Detailed Performance Table
         html.Div([
             html.H4("Performance Breakdown"),
             create_performance_table(fio_data)
@@ -360,10 +327,8 @@ def create_status_summary(fio_data, workload_config, scenario_config):
     ])
 
 def create_performance_table(fio_data):
-    """Create a compact performance breakdown table"""
     summary_data = []
     
-    # Aggregate totals
     total_read_iops = sum(j['read']['iops'] for j in fio_data['jobs'])
     total_write_iops = sum(j['write']['iops'] for j in fio_data['jobs'])
     total_read_bw = sum(j['read']['bw'] for j in fio_data['jobs']) / 1024
@@ -415,7 +380,7 @@ def create_performance_table(fio_data):
         },
         style_data_conditional=[
             {
-                'if': {'row_index': 2},  # Total row
+                'if': {'row_index': 2},
                 'backgroundColor': 'rgba(16, 185, 129, 0.1)',
                 'fontWeight': 'bold'
             },
@@ -431,18 +396,14 @@ def create_performance_table(fio_data):
     )
 
 def create_comprehensive_charts(fio_data, workload_config):
-    """Create comprehensive visualization charts"""
     charts = []
     
-    # Aggregate data across all jobs
     total_read_iops = sum(j['read']['iops'] for j in fio_data['jobs'])
     total_write_iops = sum(j['write']['iops'] for j in fio_data['jobs'])
-    total_read_bw = sum(j['read']['bw'] for j in fio_data['jobs']) / 1024  # MB/s
+    total_read_bw = sum(j['read']['bw'] for j in fio_data['jobs']) / 1024
     total_write_bw = sum(j['write']['bw'] for j in fio_data['jobs']) / 1024
     
-    # Create a 2x2 grid of compact charts
     charts_row1 = html.Div([
-        # IOPS Chart (left)
         html.Div([
             dcc.Graph(
                 figure=create_iops_chart(total_read_iops, total_write_iops),
@@ -450,7 +411,6 @@ def create_comprehensive_charts(fio_data, workload_config):
             )
         ], style={'width': '48%', 'display': 'inline-block'}),
         
-        # Bandwidth Chart (right)
         html.Div([
             dcc.Graph(
                 figure=create_bandwidth_chart(total_read_bw, total_write_bw),
@@ -461,7 +421,6 @@ def create_comprehensive_charts(fio_data, workload_config):
     
     charts.append(charts_row1)
     
-    # Latency chart full width
     if fio_data['jobs']:
         lat_chart = html.Div([
             dcc.Graph(
@@ -474,7 +433,6 @@ def create_comprehensive_charts(fio_data, workload_config):
     return charts
 
 def create_iops_chart(read_iops, write_iops):
-    """Create compact IOPS chart"""
     fig = go.Figure(data=[
         go.Bar(
             x=['Read', 'Write'], 
@@ -497,7 +455,6 @@ def create_iops_chart(read_iops, write_iops):
     return fig
 
 def create_bandwidth_chart(read_bw, write_bw):
-    """Create compact bandwidth chart"""
     fig = go.Figure(data=[
         go.Bar(
             x=['Read', 'Write'], 
@@ -520,7 +477,6 @@ def create_bandwidth_chart(read_bw, write_bw):
     return fig
 
 def create_latency_chart(job):
-    """Create latency percentile chart"""
     read_percentiles = job['read'].get('clat_ns', {}).get('percentile', {})
     write_percentiles = job['write'].get('clat_ns', {}).get('percentile', {})
     
@@ -528,7 +484,7 @@ def create_latency_chart(job):
     
     if read_percentiles:
         percentiles = [float(p) for p in read_percentiles.keys()]
-        read_lats = [v / 1000 for v in read_percentiles.values()]  # Convert to μs
+        read_lats = [v / 1000 for v in read_percentiles.values()]
         fig.add_trace(go.Scatter(
             x=percentiles, y=read_lats, name='Read',
             mode='lines+markers', 
@@ -538,7 +494,7 @@ def create_latency_chart(job):
     
     if write_percentiles:
         percentiles = [float(p) for p in write_percentiles.keys()]
-        write_lats = [v / 1000 for v in write_percentiles.values()]  # Convert to μs
+        write_lats = [v / 1000 for v in write_percentiles.values()]
         fig.add_trace(go.Scatter(
             x=percentiles, y=write_lats, name='Write',
             mode='lines+markers', 
