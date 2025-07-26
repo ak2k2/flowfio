@@ -8,6 +8,8 @@ Simple MVP web app to run and manage FIO storage benchmarks.
 ```bash
 docker-compose up --build
 ```
+
+Open dashboard on port 8050 over docker/orbstack default-network.
 http://localhost:8050
 
 ## What
